@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
+    integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ=="
+    crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"
+    integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ=="
+    crossorigin=""></script>
+    <style>
+        #ISSmap { 
+            height: 300px;
+        }
+        *{
+            box-sizing: border-box;
+        }
+        header{
+            width:100%;
+            height: 100px;
+            background-color: #000000;
+            color:#ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .map_metrics{
+            display: flex;
+            background-color: #000000;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: center;
+        }
+        .metrics{
+            background-color: #000000;
+            color:#ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            width: 30%;
+            margin-left: 36px;
+        }
+        #maps{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #000000;
+            width: 60%;
+            
+        }
+        #ISSmap{
+            min-width: 350px;
+            height: 350px;
+            background-color: none;
+            width: 100%;
+            border-radius: 10px;
+
+        }
+        .apod_section{
+            background-color: #000000;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .apod_section h3{
+            color:#ffffff;
+            margin-top: 40px;
+            text-align: center;
+        }
+        #apod_title{
+            color:#ffffff;
+            font-size: 30px;
+            text-align: center;
+            font-size: medium;
+            font-style: italic;
+            text-decoration: underline;
+        }
+        .apod_i_t{
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: center;
+            color:#ffffff;
+        }
+        .apod_text{
+            width: 400px;
+            margin: 16px;
+        }
+        
+    </style>
+
+    <title>Where is the ISS</title>
+</head>
+<body>
+    <header>
+        <h1>Where is the ISS</h1>
+    </header>
+    <section class="map_metrics">
+        <div id="maps">
+            <div id="ISSmap"></div>
+        </div>
+        <div class="metrics">
+            <p>Latitude: <span id="lat"></span>º</br>
+            Longitude: <span id="lon"></span>º</br> 
+            Velocity: <span id="vel"></span> Km/s</br>
+            Altitude: <span id="alt"></span> miles </br>
+            Visibility: <span id="vis"></span></p>
+        </div>
+    </section>
+    <section class="apod_section">
+        <h3>Astronomy picture of the day:</h3>
+        <span id="apod_title"></span>
+        <div class="apod_i_t">
+            <img src="" id="apod_img" width="480"/>
+            <div class="apod_text">
+                <h2>Explanation: </h2> 
+                <span id="expl"></span>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        
+
+        const map = L.map('ISSmap').setView([51.505, -0.09], 1);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        var issIcon = L.icon({
+            iconUrl: 'iss200.png',
+            iconSize: [50, 32],
+            iconAnchor: [25, 16],
+        });
+
+        const marker = L.marker([0, 0], {icon: issIcon}).addTo(map);
+
+        const iss_url = 'https://api.wheretheiss.at/v1/satellites/25544';
+        const apod_url = 'https://api.nasa.gov/planetary/apod?api_key=IL9fufhQ8tIB7ygb4UaNRhBNjVAAEbCa7J2XdMLt';
+
+        function reload_1sec(func) {
+            intervalID = setInterval(func, 1000);
+        }
+        
+        let firstTime = true;
+        const lons = [];
+        const lats = [];
+
+        async function getISS(){
+            
+
+            const response = await fetch(iss_url);
+            const data = await response.json();
+            const {latitude, longitude, velocity, visibility, altitude} = data;
+
+            const aspect = 1.5625;
+            const w = (altitude * aspect) / 10;
+            const h = altitude / 10;
+            issIcon.options.iconSize = [w, h];
+            issIcon.options.iconAnchor = [w / 2, h / 2];
+
+            marker.setLatLng([latitude, longitude]);
+            if (firstTime){
+                map.setView([latitude, longitude], 2);
+                firstTime = false;
+                getAPOD();
+            }
+
+            document.getElementById('lat').textContent = latitude.toFixed(4);
+            document.getElementById('lon').textContent = longitude.toFixed(4);
+            document.getElementById('vel').textContent = velocity.toFixed(2);
+            document.getElementById('alt').textContent = altitude.toFixed(2);
+            document.getElementById('vis').textContent = visibility;
+
+            lons.push(longitude);
+            lats.push(latitude);
+        }
+
+        
+
+        async function getAPOD(){
+            const response = await fetch(apod_url);
+            const data = await response.json();
+            const {title, url, explanation} = data;
+            document.getElementById('apod_title').textContent = title;
+            document.getElementById('expl').textContent = explanation;
+            document.getElementById('apod_img').src = url;
+        }
+
+        reload_1sec(getISS);
+        console.log(lons, lats);
+        setInterval(getAPOD, 1000000);
+    </script>
+        
+</body>
+</html>
